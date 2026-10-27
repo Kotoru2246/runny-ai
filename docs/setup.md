@@ -94,6 +94,21 @@ flutter run
 ```
 
 ## Troubleshooting
+### Password reset emails (Supabase Cloud)
+
+- In **Authentication → URL Configuration**, set **Site URL** to
+  `https://runny-ai.onrender.com/` and add
+  `https://runny-ai.onrender.com/?recovery=1` to **Redirect URLs**.
+- In **Authentication → Email Templates → Reset Password**, keep the reset link
+  pointed at `{{ .ConfirmationURL }}`. Linking directly to `{{ .SiteURL }}` or
+  `{{ .RedirectTo }}` skips verification and cannot establish a recovery session.
+- Deploy the updated Flutter web app on Render, then request a new email.
+  Open its link in the same browser and on the same origin that requested it:
+  the PKCE verifier is stored there. Expired/used links or a missing verifier
+  display an error with a way back to login to request another link.
+- Local development requires the exact URL (including port and `?recovery=1`)
+  in the local redirect allowlist; the default ports are in `supabase/config.toml`.
+
 - **Missing Dependencies**: Ensure `flutter pub get` is run in `apps/runny_app`.
 - **API Errors**: Check your `.env` file for correct keys and ensure Supabase Edge Functions are correctly deployed and accessible.
 

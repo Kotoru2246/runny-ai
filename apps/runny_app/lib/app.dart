@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -6,14 +8,22 @@ import 'pages/landing_page.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/reset_password_page.dart';
+import 'pages/login_page.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_provider.dart';
 import 'l10n/language_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'services/notification_navigation_service.dart';
+import 'services/auth_redirect.dart';
+import 'services/password_recovery_service.dart';
 
 class RunnyApp extends StatelessWidget {
-  const RunnyApp({super.key});
+  final PasswordRecoveryStatus initialRecoveryStatus;
+
+  const RunnyApp({
+    super.key,
+    this.initialRecoveryStatus = PasswordRecoveryStatus.none,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,25 +44,56 @@ class RunnyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('vi'),
-      ],
-      home: const AuthGate(),
+      supportedLocales: const [Locale('en'), Locale('vi')],
+      home: AuthGate(initialRecoveryStatus: initialRecoveryStatus),
     );
   }
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  final PasswordRecoveryStatus initialRecoveryStatus;
+
+  const AuthGate({
+    super.key,
+    this.initialRecoveryStatus = PasswordRecoveryStatus.none,
+  });
 
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _passwordRecovery = false;
+  late PasswordRecoveryStatus _recoveryStatus;
+  late final StreamSubscription<AuthState> _recoverySubscription;
   bool _wasAuthenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _recoveryStatus = widget.initialRecoveryStatus;
+    _recoverySubscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen(
+          (state) {
+            if (state.event == AuthChangeEvent.passwordRecovery) {
+              setState(() => _recoveryStatus = PasswordRecoveryStatus.ready);
+              _syncAuthOverlay(true);
+            }
+          },
+          onError: (Object error) {
+            if (_recoveryStatus != PasswordRecoveryStatus.none) {
+              setState(
+                () => _recoveryStatus = PasswordRecoveryStatus.invalidLink,
+              );
+            }
+          },
+        );
+  }
+
+  @override
+  void dispose() {
+    _recoverySubscription.cancel();
+    super.dispose();
+  }
 
   /// Khi vừa chuyển từ trạng thái chưa đăng nhập sang đã đăng nhập, dọn mọi
   /// route (vd: LoginPage) đang được push đè lên AuthGate, để AuthGate (gốc)
@@ -77,23 +118,30 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<AuthState>(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
-        final event = snapshot.data?.event;
-        if (event == AuthChangeEvent.passwordRecovery) {
-          _passwordRecovery = true;
-        }
-
         // Người dùng vừa bấm link đặt lại mật khẩu: yêu cầu đặt mật khẩu mới
         // trước khi cho vào ứng dụng.
-        if (_passwordRecovery) {
+        if (_recoveryStatus != PasswordRecoveryStatus.none) {
           return ResetPasswordPage(
-            onDone: () => setState(() => _passwordRecovery = false),
+            invalidLink: _recoveryStatus == PasswordRecoveryStatus.invalidLink,
+            onDone: () {
+              clearAuthRedirect();
+              final returnToLogin =
+                  _recoveryStatus == PasswordRecoveryStatus.invalidLink;
+              setState(() => _recoveryStatus = PasswordRecoveryStatus.none);
+              if (returnToLogin) {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const LoginPage()));
+              }
+            },
           );
         }
 
         final session = snapshot.data?.session;
 
         // Fallback to current session if stream hasn't emitted yet but we have data
-        final effectiveSession = session ?? Supabase.instance.client.auth.currentSession;
+        final effectiveSession =
+            session ?? Supabase.instance.client.auth.currentSession;
 
         _syncAuthOverlay(effectiveSession != null);
 
@@ -106,11 +154,14 @@ class _AuthGateState extends State<AuthGate> {
                 .maybeSingle(),
             builder: (context, profileSnapshot) {
               if (profileSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
               }
 
               final profile = profileSnapshot.data;
-              if (profile == null || profile['has_completed_onboarding'] == false) {
+              if (profile == null ||
+                  profile['has_completed_onboarding'] == false) {
                 return const OnboardingPage();
               }
 

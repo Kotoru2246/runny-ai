@@ -10,8 +10,13 @@ import '../utils/unsigned_text_input_formatter.dart';
 /// luồng đăng nhập bình thường.
 class ResetPasswordPage extends StatefulWidget {
   final VoidCallback onDone;
+  final bool invalidLink;
 
-  const ResetPasswordPage({super.key, required this.onDone});
+  const ResetPasswordPage({
+    super.key,
+    required this.onDone,
+    this.invalidLink = false,
+  });
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
@@ -50,7 +55,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           SnackBar(content: Text(context.translate('password_updated'))),
         );
       }
-      widget.onDone();
+      if (mounted) widget.onDone();
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,48 +99,57 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      TextField(
-                        controller: _passwordController,
-                        decoration: themedInputDecoration(
-                          context,
-                          context.translate('new_password'),
-                          icon: Icons.lock,
-                          isRequired: true,
+                      if (widget.invalidLink) ...[
+                        Text(context.translate('reset_link_invalid')),
+                        const SizedBox(height: 24),
+                        GradientButton(
+                          onPressed: widget.onDone,
+                          child: Text(context.translate('back_to_login')),
                         ),
-                        keyboardType: TextInputType.visiblePassword,
-                        obscureText: true,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
+                      ] else ...[
+                        TextField(
+                          controller: _passwordController,
+                          decoration: themedInputDecoration(
+                            context,
+                            context.translate('new_password'),
+                            icon: Icons.lock,
+                            isRequired: true,
+                          ),
+                          keyboardType: TextInputType.visiblePassword,
+                          obscureText: true,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          inputFormatters: [UnsignedTextInputFormatter()],
+                          onChanged: (_) => setState(() {}),
                         ),
-                        inputFormatters: [UnsignedTextInputFormatter()],
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      if (_passwordController.text.isNotEmpty)
-                        PasswordRequirementsChecklist(
-                          password: _passwordController.text,
-                        ),
-                      const SizedBox(height: 24),
-                      GradientButton(
-                        onPressed:
-                            _isLoading ||
-                                !PasswordRequirementsChecklist.isValid(
-                                  _passwordController.text,
+                        if (_passwordController.text.isNotEmpty)
+                          PasswordRequirementsChecklist(
+                            password: _passwordController.text,
+                          ),
+                        const SizedBox(height: 24),
+                        GradientButton(
+                          onPressed:
+                              _isLoading ||
+                                  !PasswordRequirementsChecklist.isValid(
+                                    _passwordController.text,
+                                  )
+                              ? null
+                              : _submit,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                            ? null
-                            : _submit,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(context.translate('update_password')),
-                      ),
+                              : Text(context.translate('update_password')),
+                        ),
+                      ],
                     ],
                   ),
                 ),

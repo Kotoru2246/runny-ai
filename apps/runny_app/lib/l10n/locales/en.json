@@ -39,6 +39,7 @@
   "reset_password_title": "Reset password",
   "reset_password_hint": "Enter your email and we'll send you a link to reset your password.",
   "reset_email_sent": "Password reset email sent. Please check your inbox.",
+  "reset_link_invalid": "This reset link has expired, has already been used, or could not be verified. Request a new link and open it in the same browser where you requested it.",
   "enter_email_first": "Please enter your email address first.",
   "send": "Send",
   "cancel": "Cancel",

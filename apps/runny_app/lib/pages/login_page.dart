@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/password_recovery_service.dart';
 import '../widgets/ui_components.dart';
 import '../widgets/password_requirements_checklist.dart';
 import '../l10n/app_localizations.dart';
@@ -332,7 +333,9 @@ class _LoginPageState extends State<LoginPage> {
     if (email == null || email.isEmpty || !mounted) return;
 
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      await PasswordRecoveryService(
+        Supabase.instance.client.auth,
+      ).sendResetEmail(email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.translate('reset_email_sent'))),
