@@ -35,9 +35,13 @@ Future<void> main() async {
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  await NotificationService.instance.initialize(
-    onRunReminderTap: handleRunReminderPayload,
-  );
+  try {
+    await NotificationService.instance.initialize(
+      onRunReminderTap: handleRunReminderPayload,
+    );
+  } catch (e, st) {
+    debugPrint('Failed to initialize NotificationService: $e\n$st');
+  }
 
   runApp(
     MultiProvider(
