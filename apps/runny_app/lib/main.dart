@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,8 @@ import 'services/entitlement_service.dart';
 import 'services/notification_navigation_service.dart';
 import 'services/notification_service.dart';
 import 'services/ai_coach_hub_controller.dart';
+import 'services/auth_redirect.dart';
+import 'services/password_recovery_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,13 +38,9 @@ Future<void> main() async {
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  try {
-    await NotificationService.instance.initialize(
-      onRunReminderTap: handleRunReminderPayload,
-    );
-  } catch (e, st) {
-    debugPrint('Failed to initialize NotificationService: $e\n$st');
-  }
+  await NotificationService.instance.initialize(
+    onRunReminderTap: handleRunReminderPayload,
+  );
 
   runApp(
     MultiProvider(
@@ -52,7 +51,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => EntitlementProvider()),
         ChangeNotifierProvider(create: (_) => AICoachHubController()),
       ],
-      child: const RunnyApp(),
+      child: RunnyApp(initialRecoveryStatus: recoveryStatus),
     ),
   );
 }
